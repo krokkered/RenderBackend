@@ -2,6 +2,7 @@ const express = require('express')
 const morgan = require('morgan')
 const app = express()
 const cors = require('cors')
+const path = require('path')
 
 app.use(express.json())
 
@@ -34,6 +35,7 @@ morgan.token('body', (req) => {
 
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 app.use(cors())
+// app.use(express.static(path.join(__dirname, 'dist')))
 
 const PORT = process.env.PORT || 3001
 
@@ -67,8 +69,14 @@ let persons =[
 ]
 
 app.get('/', (request, response) => {
-    response.send('<h1>Hello World!</h1>')
+    response.send('<h1>Hello World! Phonebook.app</h1>')
 })
+
+app.get('/phoneindex', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+})
+
+
 
 app.get('/api/persons', (request, response) => {
     response.json(persons)
