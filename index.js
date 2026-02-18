@@ -1,10 +1,22 @@
+require('dotenv').config()
 const express = require('express')
+const Contact = require('./models/contact')
+
 const morgan = require('morgan')
 const app = express()
+
 const cors = require('cors')
 const path = require('path')
 
+
 app.use(express.json())
+
+
+
+
+
+
+
 
 //morgan.token('body2', function (req, res) {
    // console.log(res)
@@ -79,38 +91,95 @@ app.get('/phoneindex', (req, res) => {
 
 
 app.get('/api/persons', (request, response) => {
-    response.json(persons)
+    //response.json(persons)
+
+
+    Contact.find({}).then(result => {
+            response.json(result)
+        })
+
 })
 
 app.get('/api/info', (request, response) => {
-    response.send(`
-  <h1>Phonebook has info for ${count} ${count === 1 ? 'person' : 'people'}!</h1>    <div>${new Date()}</div>
-    `)
+    Contact.countDocuments()
+    .then((mycount) => {
+        response.send(`
+        <h1>Phonebook has info for ${mycount} ${mycount === 1 ? 'person' : 'people'}!</h1>
+        <div>${new Date()}</div>
+        `);
+    })
+    .catch((err) => {
+        console.log(err);
+        response.status(500).send('Error fetching count');
+    });
+});
+
+
+app.get('/api/persons/:id', (request, response, next) => {
+    const myid = request.params.id
+    Contact.findById(myid)
+    .then(person => {
+        if (person) {
+            response.json(person)
+
+        }
+        else {
+            response.status(404).end()      }
+            })
+    .catch(error => next(error))
+
 })
 
-app.get('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    const person = persons.find(person => person.id === id)
 
-    if (person) {
-          response.json(person)  }
-    else {    response.status(404).end()  }
+app.put('/api/persons/:id', (request, response, next) => {
+    const { name, number } = request.body
+    const myid = request.params.id
+
+    Contact.findById(myid)
+    .then(p => {
+        if (!p) {
+            return response.status(404).end()
+        }
+
+        p.name = name
+        p.number = number
+
+        return p.save().then((updatedPerson) => {
+            response.json(updatedPerson)
+        })
+    })
+    .catch(error => next(error))
 })
 
-app.delete('/api/persons/:id', (request, response) => {
+
+
+
+
+
+app.delete('/api/persons/:id', (request, response, next) => {
     const id = request.params.id
 
-    const person = persons.find(person => person.id === id)
-    if (person) {
-        persons = persons.filter(person => person.id !== id)
+    // const person = persons.find(person => person.id === id)
+    // if (person) {
+    //     persons = persons.filter(person => person.id !== id)
+    //     response.status(204).end()
+    // } else {
+    //     response.status(404).end()  }
+    // .catch(error => next(error))
+
+    Contact.findByIdAndDelete(id)
+    .then(result => {
         response.status(204).end()
-    } else {
-        response.status(404).end()  }
+    })
+    .catch(error => next(error))
+
+
+
 
 
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response,next) => {
     const person = request.body
 
     console.log("-------------------------------------------")
@@ -118,7 +187,7 @@ app.post('/api/persons', (request, response) => {
     //console.log(person)
 
 
-    if (!person.name) {
+ /*   if (!person.name) {
         return response.status(400).json({
             error: 'name is missing'
         })
@@ -132,23 +201,47 @@ app.post('/api/persons', (request, response) => {
         return response.status(400).json({
             error: 'The name already exists in the phonebook'
         })
-    }
+    }*/
 
     const a = persons.length
     const id = Math.floor(Math.random() * (1000 - a + 1)) + a
 
-    const newperson = {"name":person.name, "number":person.number}
+    const newperson = new Contact({"name":person.name, "number":person.number})
 
-    newperson.id = String(id)
+    newperson.save().then(savedContact => {
+        response.json("added, ", savedContact)
+    }).catch(error => next(error))
+
+
+    //newperson.id = String(id)
 
     persons = persons.concat(newperson)
 
-    response.json("added ")
 })
 
 
+const unknownEndpoint = (request, response) => {
+    response.status(404).send({ error: 'unknown endpoint' })
+}
 
+// handler of requests with unknown endpoint
+app.use(unknownEndpoint)
 
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    if (error.name === 'CastError') {
+        return response.status(400).send({ error: 'malformatted id' })
+    }
+    else if (error.name === 'ValidationError') {
+        return response.status(400).json({ error: error.message })
+
+    }
+
+    next(error)
+}
+
+app.use(errorHandler)
 
 
 
